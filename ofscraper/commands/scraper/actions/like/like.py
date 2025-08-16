@@ -31,22 +31,46 @@ unlike_str = "Performing Unlike Action on {name}" + warning_str
 
 @exit.exit_wrapper
 def process_like(posts=None, model_id=None, username=None, **kwargs):
-    with progress_utils.setup_live("like"):
-        progress_updater.activity.update_task(
-            description=like_str.format(name=username), visible=True
-        )
-        logging.getLogger("shared").warning(like_str.format(name=username))
-        like(model_id, username, posts)
+    """
+    Processes like actions with error handling.
+    
+    Args:
+        posts (list): List of posts.
+        model_id (str): The model ID.
+        username (str): The username.
+    """
+    try:
+        with progress_utils.setup_live("like"):
+            progress_updater.activity.update_task(
+                description=like_str.format(name=username), visible=True
+            )
+            logging.getLogger("shared").warning(like_str.format(name=username))
+            like(model_id, username, posts)
+    except Exception as e:
+        logging.error(f"Error in process_like: {str(e)}")
+        raise
 
 
 @exit.exit_wrapper
 def process_unlike(posts=None, model_id=None, username=None, **kwargs):
-    with progress_utils.setup_live("like"):
-        progress_updater.activity.update_task(
-            description=unlike_str.format(name=username), visible=True
-        )
-        logging.getLogger("shared").warning(unlike_str.format(name=username))
-        unlike(model_id, username, posts)
+    """
+    Processes unlike actions with error handling.
+    
+    Args:
+        posts (list): List of posts.
+        model_id (str): The model ID.
+        username (str): The username.
+    """
+    try:
+        with progress_utils.setup_live("like"):
+            progress_updater.activity.update_task(
+                description=unlike_str.format(name=username), visible=True
+            )
+            logging.getLogger("shared").warning(unlike_str.format(name=username))
+            unlike(model_id, username, posts)
+    except Exception as e:
+        logging.error(f"Error in process_unlike: {str(e)}")
+        raise
 
 
 def get_posts_for_unlike(post):
@@ -72,11 +96,35 @@ def filter_for_favorited(posts: list) -> list:
 
 
 def like(model_id, username, posts: list[Post]):
-    return _like(model_id, username, posts, True)
+    """
+    Likes the posts.
+    
+    Args:
+        model_id (str): The model ID.
+        username (str): The username.
+        posts (list[Post]): List of posts to like.
+    """
+    try:
+        return _like(model_id, username, posts, True)
+    except Exception as e:
+        logging.error(f"Error in like: {str(e)}")
+        raise
 
 
 def unlike(model_id, username, posts: list):
-    return _like(model_id, username, posts, False)
+    """
+    Unlikes the posts.
+    
+    Args:
+        model_id (str): The model ID.
+        username (str): The username.
+        posts (list): List of posts to unlike.
+    """
+    try:
+        return _like(model_id, username, posts, False)
+    except Exception as e:
+        logging.error(f"Error in unlike: {str(e)}")
+        raise
 
 
 def _like(model_id, username, posts: list, like_action: bool):
@@ -117,25 +165,40 @@ def _like(model_id, username, posts: list, like_action: bool):
 
 
 def _toggle_like_requests(c, post: Post, model_id):
-    max_duration = of_env.getattr("MAX_SLEEP_DURATION_LIKE")
-    min_duration = of_env.getattr("MIN_SLEEP_DURATION_LIKE")
-    post.mark_like_attempt()
+    """
+    Toggles like requests.
+    
+    Args:
+        c: Session manager.
+        post (Post): The post object.
+        model_id (str): The model ID.
+    
+    Returns:
+        int: Status code.
+    """
+    try:
+        max_duration = of_env.getattr("MAX_SLEEP_DURATION_LIKE")
+        min_duration = of_env.getattr("MIN_SLEEP_DURATION_LIKE")
+        post.mark_like_attempt()
 
-    sleep_duration = random.uniform(min_duration, max_duration)
-    favorited, id = _like_request(c, post.id, model_id)
-    if favorited is None:
-        post.mark_post_liked(success=False)
-        return 3
-    elif favorited:
-        log.debug(f"ID: {id} changed to liked")
-        post.mark_post_liked()
-        return 1
-    else:
-        log.debug(f"ID: {id} restored to liked")
-        time.sleep(sleep_duration)
-        _like_request(c, id, model_id)
-        post.mark_post_liked()
-        return 2
+        sleep_duration = random.uniform(min_duration, max_duration)
+        favorited, id = _like_request(c, post.id, model_id)
+        if favorited is None:
+            post.mark_post_liked(success=False)
+            return 3
+        elif favorited:
+            log.debug(f"ID: {id} changed to liked")
+            post.mark_post_liked()
+            return 1
+        else:
+            log.debug(f"ID: {id} restored to liked")
+            time.sleep(sleep_duration)
+            _like_request(c, id, model_id)
+            post.mark_post_liked()
+            return 2
+    except Exception as e:
+        logging.error(f"Error in _toggle_like_requests: {str(e)}")
+        return 3  # Error state
 
 
 def _toggle_unlike_requests(c, post: Post, model_id):

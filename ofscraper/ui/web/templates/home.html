@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>OF-Scraper Home</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>OF-Scraper Web UI</h1>
+    <form action="/start" method="post">
+        <label for="api_key">API Key:</label>
+        <input type="text" id="api_key" name="api_key"><br>
+
+        <label for="profile_url">Profile URL(s) (comma-separated):</label>
+        <input type="text" id="profile_url" name="profile_url"><br>
+
+        <label>Actions:</label><br>
+        <input type="checkbox" name="actions" value="like"> Like<br>
+        <input type="checkbox" name="actions" value="unlike"> Unlike<br>
+        <input type="checkbox" name="actions" value="download"> Download<br>
+
+        <input type="checkbox" name="scrape_paid"> Scrape Paid Content<br>
+
+        <label for="download_folder">Download Folder:</label>
+        <input type="text" id="download_folder" name="download_folder"><br>
+
+        <label for="max_count">Max Post Count:</label>
+        <input type="range" id="max_count" name="max_count" min="0" max="1000" value="0"><br>
+
+        <label for="size_min">Min File Size (bytes):</label>
+        <input type="range" id="size_min" name="size_min" min="0" max="10000000" value="0"><br>
+
+        <label for="size_max">Max File Size (bytes):</label>
+        <input type="range" id="size_max" name="size_max" min="0" max="10000000" value="10000000"><br>
+
+        <button type="submit">Start Scraping</button>
+    </form>
+    <a href="/settings">Settings</a>
+</body>
+</html>

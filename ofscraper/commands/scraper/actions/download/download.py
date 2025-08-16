@@ -1,12 +1,11 @@
 import logging
 import pathlib
 import asyncio
+from typing import Optional, List, Tuple  # Add type hints
 
-import ofscraper.utils.hash as hash
+import ofscraper.utils.hash as hash_helper  # Renamed for clarity
 from ofscraper.utils.context.run_async import run as run_async
-from ofscraper.commands.utils.strings import (
-    download_activity_str,
-)
+from ofscraper.commands.utils.strings import download_activity_str
 import ofscraper.utils.live.updater as progress_updater
 import ofscraper.utils.config.data as config_data
 import ofscraper.utils.paths.common as common_paths
@@ -17,9 +16,7 @@ import ofscraper.utils.cache as cache
 import ofscraper.utils.context.exit as exit
 import ofscraper.utils.live.screens as progress_utils
 
-
 from ofscraper.commands.scraper.actions.utils.paths import setDirectoriesDate
-
 from ofscraper.commands.scraper.actions.utils.workers import get_max_workers
 from ofscraper.utils.context.run_async import run
 from ofscraper.commands.scraper.actions.download.run import consumer
@@ -29,100 +26,146 @@ import ofscraper.utils.settings as settings
 import ofscraper.managers.manager as manager
 
 
-async def downloader(username=None, model_id=None, posts=None, media=None, **kwargs):
-    download_str = download_activity_str.format(username=username)
-    path_str = format_safe(
-        f"\nSaving files to [deep_sky_blue2]{str(pathlib.Path(common_paths.get_save_location(),config_data.get_dirformat(),config_data.get_fileformat()))}[/deep_sky_blue2]",
-        username=username,
-        model_id=model_id,
-        model_username=username,
-        modelusername=username,
-        modelid=model_id,
-    )
-    with progress_utils.TemporaryTaskState(progress_updater.activity, ["main"]):
-        progress_updater.activity.update_task(
-            description=download_str + path_str, visible=True
+
+async def downloader(username: Optional[str] = None, model_id: Optional[str] = None, posts: Optional[List] = None, media: Optional[List] = None, **kwargs) -> Tuple:
+    """
+    Downloads media for the given username and model ID with error handling.
+    
+    Args:
+        username (str): The username.
+        model_id (str): The model ID.
+        posts (list): List of posts.
+        media (list): List of media items.
+    
+    Returns:
+        tuple: Download statistics.
+    """
+    try:
+        download_str = download_activity_str.format(username=username)
+        path_str = format_safe(
+            f"\nSaving files to [deep_sky_blue2]{str(pathlib.Path(common_paths.get_save_location(),config_data.get_dirformat(),config_data.get_fileformat()))}[/deep_sky_blue2]",
+            username=username,
+            model_id=model_id,
+            model_username=username,
+            modelusername=username,
+            modelid=model_id,
         )
-        logging.getLogger("shared").warning(
-            download_activity_str.format(username=username)
-        )
-        values = await download_process(username, model_id, media, posts=posts)
-        return values
+        with progress_utils.TemporaryTaskState(progress_updater.activity, ["main"]):
+            progress_updater.activity.update_task(
+                description=download_str + path_str, visible=True
+            )
+            logging.getLogger("shared").warning(
+                download_activity_str.format(username=username)
+            )
+            values = await download_process(username, model_id, media, posts=posts)
+            return values
+    except Exception as e:
+        logging.error(f"Error in downloader: {str(e)}")
+        raise  # Propagate for UI handling
 
 
 @run_async
-async def download_process(username, model_id, medialist, posts):
-    values = await process_dicts(username, model_id, medialist, posts)
-    return values
+async def download_process(username: str, model_id: str, medialist: List, posts: List) -> Tuple:
+    """
+    Processes the download tasks.
+    
+    Args:
+        username (str): The username.
+        model_id (str): The model ID.
+        medialist (list): List of media.
+        posts (list): List of posts.
+    
+    Returns:
+        tuple: Processed values.
+    """
+    try:
+        values = await process_dicts(username, model_id, medialist, posts)
+        return values
+    except Exception as e:
+        logging.error(f"Error in download_process: {str(e)}")
+        raise
 
 
 @run
-async def process_dicts(username, model_id, medialist, posts):
-    # 2. Handle text download if enabled
-    if not isinstance(medialist, list):
-        medialist = [medialist]
-    if not isinstance(posts, list):
-        posts = [posts]
-    if settings.get_settings().text:
-        await textDownloader(posts, username=username)
-    if settings.get_settings().text_only:
-        return (0, 0, 0, 0, 0)
-    medialist_empty = len(medialist) == 0
+async def process_dicts(username: str, model_id: str, medialist: List, posts: List) -> Tuple:
+    """
+    Processes dictionaries for downloading.
+    
+    Args:
+        username (str): The username.
+        model_id (str): The model ID.
+        medialist (list): List of media.
+        posts (list): List of posts.
+    
+    Returns:
+        tuple: Download statistics.
+    """
+    try:
+        if not isinstance(medialist, list):
+            medialist = [medialist]
+        if not isinstance(posts, list):
+            posts = [posts]
+        if settings.get_settings().text:
+            await textDownloader(posts, username=username)
+        if settings.get_settings().text_only:
+            return (0, 0, 0, 0, 0)
+        medialist_empty = len(medialist) == 0
 
-    if medialist_empty:
-        return (0, 0, 0, 0, 0)
+        if medialist_empty:
+            return (0, 0, 0, 0, 0)
 
-    # Continue to download process
-    logging.getLogger("shared").info("Downloading in single thread mode")
-    common_globals.mainProcessVariableInit()
-    task1 = None
-    with progress_utils.setup_live("download"):
-        try:
-
-            aws = []
-            async with manager.Manager.get_download_session() as c:
-                for ele in medialist:
-                    aws.append((c, ele, model_id, username))
-                task1 = progress_updater.download.add_overall_task(
-                    desc.format(
-                        p_count=0,
-                        v_count=0,
-                        a_count=0,
-                        skipped=0,
-                        mediacount=len(medialist),
-                        forced_skipped=0,
-                        sumcount=0,
-                        total_bytes_download=0,
-                        total_bytes=0,
-                    ),
-                    total=len(aws),
-                    visible=True,
+        logging.getLogger("shared").info("Downloading in single thread mode")
+        common_globals.mainProcessVariableInit()
+        task1 = None
+        with progress_utils.setup_live("download"):
+            try:
+                aws = []
+                async with manager.Manager.get_download_session() as c:
+                    for ele in medialist:
+                        aws.append((c, ele, model_id, username))
+                    task1 = progress_updater.download.add_overall_task(
+                        desc.format(
+                            p_count=0,
+                            v_count=0,
+                            a_count=0,
+                            skipped=0,
+                            mediacount=len(medialist),
+                            forced_skipped=0,
+                            sumcount=0,
+                            total_bytes_download=0,
+                            total_bytes=0,
+                        ),
+                        total=len(aws),
+                        visible=True,
+                    )
+                    concurrency_limit = get_max_workers()
+                    lock = asyncio.Lock()
+                    consumers = [
+                        asyncio.create_task(consumer(aws, task1, medialist, lock))
+                        for _ in range(concurrency_limit)
+                    ]
+                    await asyncio.gather(*consumers)
+            except Exception as E:
+                logging.error(f"Error in process_dicts: {str(E)}")
+                raise
+            finally:
+                await asyncio.get_event_loop().run_in_executor(
+                    common_globals.thread, cache.close
                 )
-                concurrency_limit = get_max_workers()
-                lock = asyncio.Lock()
-                consumers = [
-                    asyncio.create_task(consumer(aws, task1, medialist, lock))
-                    for _ in range(concurrency_limit)
-                ]
-                await asyncio.gather(*consumers)
-        except Exception as E:
-            with exit.DelayedKeyboardInterrupt():
-                raise E
-        finally:
-            await asyncio.get_event_loop().run_in_executor(
-                common_globals.thread, cache.close
-            )
-            common_globals.thread.shutdown()
+                common_globals.thread.shutdown()
 
-        setDirectoriesDate()
-        progress_updater.download.remove_overall_task(task1)
-        return (
-            common_globals.video_count,
-            common_globals.audio_count,
-            common_globals.photo_count,
-            common_globals.forced_skipped,
-            common_globals.skipped,
-        )
+            setDirectoriesDate()
+            progress_updater.download.remove_overall_task(task1)
+            return (
+                common_globals.video_count,
+                common_globals.audio_count,
+                common_globals.photo_count,
+                common_globals.forced_skipped,
+                common_globals.skipped,
+            )
+    except Exception as e:
+        logging.error(f"General error in process_dicts: {str(e)}")
+        raise
 
 
 def remove_downloads_with_hashes(username, model_id):

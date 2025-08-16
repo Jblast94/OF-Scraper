@@ -15,21 +15,24 @@ from ofscraper.utils.live.tasks import (
     get_activity_task,
     get_user_task,
 )
+from ofscraper.core.observers import progress_observer
 
 
 from rich.progress import Progress, TaskID
 
 
 class ProgressManager:
-    def __init__(self, job_progress: Progress, overall_progress: Progress):
+    def __init__(self, job_progress: Progress, overall_progress: Progress, name: str):
         self.job = job_progress
         self.overall = overall_progress
+        self.name = name
 
     def add_job_task(self, *args, **kwargs) -> TaskID:
         return self.job.add_task(*args, **kwargs)
 
     def update_job_task(self, task_id: TaskID, *args, **kwargs):
         self.job.update(task_id, *args, **kwargs)
+        progress_observer.notify(type=f'{self.name}_job', task_id=task_id, **kwargs)
 
     def remove_job_task(self, task_id: TaskID):
         if task_id is None:
@@ -44,6 +47,7 @@ class ProgressManager:
 
     def update_overall_task(self, task_id: TaskID, *args, **kwargs):
         self.overall.update(task_id, *args, **kwargs)
+        progress_observer.notify(type=f'{self.name}_overall', task_id=task_id, **kwargs)
 
     def remove_overall_task(self, task_id: TaskID):
         if task_id is None:
@@ -76,15 +80,18 @@ class ActivityManager:
     def update_task(self, visible=True, **kwargs):
         """Updates the main activity description text."""
         self.desc.update(self.get_desc_id(), visible=visible, **kwargs)
+        progress_observer.notify(type='activity_desc', **kwargs)
 
     def update_overall(self, visible=True, **kwargs):
         """Updates the 'overall' progress bar (description, progress, total, etc.)."""
 
         self.counter.update(self.get_counter_id(), visible=visible, **kwargs)
+        progress_observer.notify(type='activity_counter', **kwargs)
 
     def update_user(self, visible=True, **kwargs):
         """Updates the 'user-specific' progress bar (description, progress, etc.)."""
         self.counter.update(self.get_user_id(), visible=visible, **kwargs)
+        progress_observer.notify(type='user_task', **kwargs)
 
     def get_description(self) -> str | None:
         """Gets the current description of the main activity task."""
@@ -102,8 +109,8 @@ activity = ActivityManager(
     get_user_id=get_user_task,
 )
 
-api = ProgressManager(api_job_progress, api_overall_progress)
-userlist = ProgressManager(userlist_job_progress, userlist_overall_progress)
-metadata = ProgressManager(None, metadata_overall_progress)
-download = ProgressManager(download_job_progress, download_overall_progress)
-like = ProgressManager(None, like_overall_progress)
+api = ProgressManager(api_job_progress, api_overall_progress, name='api')
+userlist = ProgressManager(userlist_job_progress, userlist_overall_progress, name='userlist')
+metadata = ProgressManager(None, metadata_overall_progress, name='metadata')
+download = ProgressManager(download_job_progress, download_overall_progress, name='download')
+like = ProgressManager(None, like_overall_progress, name='like')

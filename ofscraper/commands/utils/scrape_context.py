@@ -22,25 +22,29 @@ log = logging.getLogger("shared")
 
 @contextmanager
 def scrape_context_manager():
-    # reset stream if needed
-    # Before yield as the enter method
-    start = datetime.now()
-    log.warning(
-        """
-==============================                            
-[bold] starting script [/bold]
-==============================
-"""
-    )
-    yield
-    end = datetime.now()
-    log.warning(
-        f"""
-===========================
-[bold] Script Finished [/bold]
-Run Time:  [bold]{str(arrow.get(end)-arrow.get(start)).split(".")[0]}[/bold]
-Started At:  [bold]{str(arrow.get(start).format("YYYY-MM-DD hh:mm:ss"))}[/bold]
-Finished At:  [bold]{str(arrow.get(end).format("YYYY-MM-DD hh:mm:ss"))}[/bold]
-===========================
-"""
-    )
+    try:
+        # reset stream if needed
+        start = datetime.now()
+        log.warning(
+            """
+            ==============================
+            [bold] starting script [/bold]
+            ==============================
+            """
+        )
+        yield
+    except Exception as e:
+        log.error(f"Error in scrape context manager: {str(e)}")
+        raise  # Propagate for higher-level handling
+    finally:
+        end = datetime.now()
+        log.warning(
+            f"""
+            ===========================
+            [bold] Script Finished [/bold]
+            Run Time:  [bold]{str(arrow.get(end)-arrow.get(start)).split(".")[0]}[/bold]
+            Started At:  [bold]{str(arrow.get(start).format("YYYY-MM-DD hh:mm:ss"))}[/bold]
+            Finished At:  [bold]{str(arrow.get(end).format("YYYY-MM-DD hh:mm:ss"))}[/bold]
+            ===========================
+            """
+        )

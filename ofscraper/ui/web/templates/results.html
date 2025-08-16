@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Results</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Scraping Results</h1>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>File</th>
+                <th>Size</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for result in results %}
+            <tr>
+                <td>{{ result.file }}</td>
+                <td>{{ result.size }}</td>
+                <td>{{ result.status }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <a href="/export"><button>Export to CSV</button></a>
+</body>
+</html>

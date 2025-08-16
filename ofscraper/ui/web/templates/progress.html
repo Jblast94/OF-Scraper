@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Progress</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/EventSource-polyfill/1.0.0/eventsource.min.js"></script>
+    <script>
+        var source = new EventSource("/stream");
+        source.addEventListener('progress', function(event) {
+            document.getElementById('log').innerHTML += event.data.message + '<br>';
+        });
+
+        function updateProgress() {
+            fetch('/status')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('progress-bar').value = data.progress * 100;
+                });
+        }
+        setInterval(updateProgress, 1000);  // Poll every second
+    </script>
+</head>
+<body>
+    <h1>Scraping Progress</h1>
+    <progress id="progress-bar" value="0" max="100"></progress>
+    <div id="log"></div>
+    <form action="/cancel" method="post">
+        <button type="submit">Cancel</button>
+    </form>
+</body>
+</html>
